@@ -23,6 +23,8 @@ Fallback if Cloudflare doesn't fit: any small VPS (the whole stack is one proces
 
 ## Later
 
+- **Industry momentum over time** — evolve the "hot industries" chip strip (added 2026-07-12, daily counts on the bursts panel) into a rolling view: which industries keep producing 4% breakouts across the last 5/10 days. Distinguishes "hot today" from a persistent leading theme — the core of Stockbee's situational awareness. Could become its own panel with per-industry burst counts trending, and click-to-filter scan panels by industry.
+
 - Pre-market/intraday episodic-pivot scanning (needs intraday data source).
 - Polygon.io free tier for daily updates (see [DATA.md](DATA.md)) — less relevant if the paid Tiingo plan stays.
 - Survivorship-correct backtesting using the delisted tickers' retained history.
