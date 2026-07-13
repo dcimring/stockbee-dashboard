@@ -109,7 +109,8 @@ def scans(scan: str, days: int = 5, limit: int = 50):
     )[0]["n"]
     order = SCAN_ORDER.get(scan, "sr.ticker")
     rows = q(
-        f"SELECT sr.date, sr.ticker, sr.metrics, sy.exchange FROM scan_results sr "
+        f"SELECT sr.date, sr.ticker, sr.metrics, sy.exchange, sy.industry, sy.ipo_year "
+        f"FROM scan_results sr "
         f"LEFT JOIN symbols sy ON sy.ticker = sr.ticker "
         f"WHERE sr.scan=? AND sr.date IN ({placeholders}) "
         f"ORDER BY sr.date DESC, {order} LIMIT ?",
@@ -117,4 +118,12 @@ def scans(scan: str, days: int = 5, limit: int = 50):
     )
     for r in rows:
         r["metrics"] = json.loads(r["metrics"])
-    return {"total": total, "rows": rows}
+    # theme rollup: industry counts across ALL of the latest day's hits
+    industries = q(
+        "SELECT sy.industry AS industry, count(*) AS n FROM scan_results sr "
+        "JOIN symbols sy ON sy.ticker = sr.ticker "
+        "WHERE sr.scan=? AND sr.date=? AND sy.industry IS NOT NULL "
+        "GROUP BY sy.industry HAVING n >= 2 ORDER BY n DESC LIMIT 8",
+        scan, dates[0],
+    )
+    return {"total": total, "rows": rows, "industries": industries}

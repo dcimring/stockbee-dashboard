@@ -13,7 +13,11 @@ CREATE TABLE IF NOT EXISTS symbols (
   type TEXT,
   active INTEGER DEFAULT 1,
   first_seen DATE,
-  last_seen DATE
+  last_seen DATE,
+  sector TEXT,
+  industry TEXT,
+  country TEXT,
+  ipo_year INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS prices (
@@ -63,4 +67,12 @@ def connect() -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=30000")
     conn.executescript(SCHEMA)
+    # migrations for databases created before these columns existed
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(symbols)")}
+    for col, typ in (
+        ("sector", "TEXT"), ("industry", "TEXT"),
+        ("country", "TEXT"), ("ipo_year", "INTEGER"),
+    ):
+        if col not in cols:
+            conn.execute(f"ALTER TABLE symbols ADD COLUMN {col} {typ}")
     return conn

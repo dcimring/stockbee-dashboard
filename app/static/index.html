@@ -49,6 +49,12 @@
               border-radius: 6px; padding: 2px 10px; cursor: pointer; float: right;
               font: inherit; font-size: 12px; }
   button.wl:hover { color: var(--text); border-color: var(--muted); }
+  td.ind { color: var(--muted); text-align: left; font-size: 12px; max-width: 175px;
+           overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hot { margin: 0 0 10px; font-size: 12px; color: var(--muted); }
+  .hot b { color: var(--text); font-weight: 600; }
+  .hot span { background: rgba(255,255,255,.06); border-radius: 10px;
+              padding: 2px 9px; margin-right: 6px; display: inline-block; margin-top: 4px; }
   #ranges button { background: none; border: 1px solid var(--border); color: var(--muted);
                    border-radius: 6px; padding: 2px 10px; margin-left: 6px; cursor: pointer;
                    font: inherit; font-size: 12px; }
@@ -96,7 +102,7 @@
       Up-days = consecutive up-days before the burst (want ≤ 2).</p>
     <table id="mb">
       <thead><tr>
-        <th>Date</th><th>Ticker</th><th>% move</th><th>Volume</th><th>C-n-H</th>
+        <th>Date</th><th>Ticker</th><th>Industry</th><th>% move</th><th>Volume</th><th>C-n-H</th>
         <th>Consol</th><th>Up-days</th><th>vs 10MA</th>
       </tr></thead><tbody></tbody>
     </table>
@@ -108,7 +114,7 @@
       E-days = days to next earnings (red &lt; 7 — avoid entries into a report).</p>
     <table id="ant">
       <thead><tr>
-        <th>Date</th><th>Ticker</th><th>Setups</th><th>TI65</th><th>Contraction</th><th>Quiet days</th><th>E-days</th>
+        <th>Date</th><th>Ticker</th><th>Industry</th><th>Setups</th><th>TI65</th><th>Contraction</th><th>Quiet days</th><th>E-days</th>
       </tr></thead><tbody></tbody>
     </table>
   </section>
@@ -119,7 +125,7 @@
       (with EPS surprise %); blank = look for another catalyst.</p>
     <table id="ep">
       <thead><tr>
-        <th>Date</th><th>Ticker</th><th>% move</th><th>Gap</th><th>RVol</th><th>$Vol (M)</th><th>9M</th><th>Earn</th>
+        <th>Date</th><th>Ticker</th><th>Industry</th><th>% move</th><th>Gap</th><th>RVol</th><th>$Vol (M)</th><th>9M</th><th>Earn</th><th>IPO</th>
       </tr></thead><tbody></tbody>
     </table>
   </section>
@@ -143,6 +149,17 @@ function tickCell(s) {
     ><a href="https://finviz.com/quote.ashx?t=${t}" target="_blank" title="Finviz">F</a
     ><a href="https://x.com/search?q=%24${t}&f=live" target="_blank" title="X search">𝕏</a
     ><a href="https://www.perplexity.ai/finance/${t}" target="_blank" title="Perplexity Finance">P</a></span></td>`;
+}
+
+const indCell = s =>
+  `<td class="ind" title="${s.industry ?? ""}">${s.industry ?? "–"}</td>`;
+
+function hotStrip(el, data) {
+  if (!data.industries?.length) return;
+  const chips = data.industries
+    .map(i => `<span>${i.industry} <b>×${i.n}</b></span>`).join("");
+  el.closest("section").querySelector(".sub")
+    .insertAdjacentHTML("afterend", `<p class="hot">Hot industries: ${chips}</p>`);
 }
 
 // ---- TradingView watchlist export ----
@@ -308,12 +325,13 @@ async function load() {
   };
   count("mb", bursts); count("ant", ant); count("ep", eps);
   panelRows.mb = bursts.rows; panelRows.ant = ant.rows; panelRows.ep = eps.rows;
+  hotStrip(document.getElementById("mb"), bursts);
 
   document.querySelector("#mb tbody").innerHTML = bursts.rows.map(s => {
     const m = s.metrics;
     const consolOk = m.days_since_burst != null && m.days_since_burst >= 3 && m.days_since_burst <= 20;
     return `<tr>
-    <td>${s.date}</td>${tickCell(s)}
+    <td>${s.date}</td>${tickCell(s)}${indCell(s)}
     <td class="good">+${fmt(m.pct * 100, 1)}%</td>
     <td>${Number(m.volume).toLocaleString()}</td>
     <td${cls(m.close_near_high >= 0.7, "good")}>${fmt(m.close_near_high)}</td>
@@ -326,7 +344,7 @@ async function load() {
   document.querySelector("#ant tbody").innerHTML = ant.rows.map(s => {
     const m = s.metrics;
     return `<tr>
-    <td>${s.date}</td>${tickCell(s)}
+    <td>${s.date}</td>${tickCell(s)}${indCell(s)}
     <td>${m.variants.join(", ")}</td>
     <td>${fmt(m.ti65_ratio)}</td>
     <td${cls(m.contraction != null && m.contraction < 1, "good")}>${fmt(m.contraction)}</td>
@@ -338,13 +356,14 @@ async function load() {
   document.querySelector("#ep tbody").innerHTML = eps.rows.map(s => {
     const m = s.metrics;
     return `<tr>
-    <td>${s.date}</td>${tickCell(s)}
+    <td>${s.date}</td>${tickCell(s)}${indCell(s)}
     <td class="good">+${fmt(m.pct * 100, 1)}%</td>
     <td>${m.gap == null ? "–" : fmt(m.gap * 100, 1) + "%"}</td>
     <td${cls(m.rel_volume >= 4, "good")}>${fmt(m.rel_volume, 1)}x</td>
     <td>${Number(m.dollar_volume_m).toLocaleString()}</td>
     <td${cls(m.nine_million, "good")}>${m.nine_million ? "✓" : ""}</td>
     <td${cls(m.earnings, "good")}>${m.earnings ? "✓" + (m.surprise_pct != null ? " " + fmt(m.surprise_pct, 0) + "%" : "") : ""}</td>
+    <td${cls(s.ipo_year != null && s.ipo_year >= new Date().getFullYear() - 10, "good")}>${s.ipo_year ?? "–"}</td>
   </tr>`;
   }).join("");
 }

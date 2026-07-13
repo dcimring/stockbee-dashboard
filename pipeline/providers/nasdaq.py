@@ -11,6 +11,7 @@ import pandas as pd
 import requests
 
 URL = "https://api.nasdaq.com/api/calendar/earnings"
+SCREENER_URL = "https://api.nasdaq.com/api/screener/stocks"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
     "Accept": "application/json",
@@ -33,6 +34,28 @@ def _money(s: str | None) -> float | None:
         return None
     v = float(m.group())
     return -v if neg else v
+
+
+def fetch_screener() -> pd.DataFrame:
+    """Whole-market classifications in one call: sector, industry, country,
+    IPO year. ~90% of liquid names carry an industry; blanks stay None."""
+    resp = requests.get(
+        SCREENER_URL, params={"limit": 0, "download": "true"},
+        headers=HEADERS, timeout=60,
+    )
+    resp.raise_for_status()
+    rows = (resp.json().get("data") or {}).get("rows") or []
+    return pd.DataFrame(
+        {
+            "ticker": r["symbol"].strip().upper(),
+            "sector": r.get("sector") or None,
+            "industry": r.get("industry") or None,
+            "country": r.get("country") or None,
+            "ipo_year": int(r["ipoyear"]) if r.get("ipoyear") else None,
+        }
+        for r in rows
+        if r.get("symbol")
+    )
 
 
 def fetch_earnings(day: str) -> pd.DataFrame:
