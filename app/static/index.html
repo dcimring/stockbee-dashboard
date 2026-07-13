@@ -39,7 +39,16 @@
   tbody tr:hover { background: rgba(255,255,255,.03); }
   td.good { background: var(--green-bg); color: var(--green); }
   td.bad  { background: var(--red-bg); color: var(--red); }
-  td.tick { text-align: left; font-weight: 600; }
+  td.tick { text-align: left; font-weight: 600; white-space: nowrap; }
+  td.tick > a { color: var(--text); text-decoration: none; }
+  td.tick > a:hover { text-decoration: underline; }
+  .rlinks a { color: var(--muted); text-decoration: none; font-size: 11px;
+              font-weight: 400; margin-left: 5px; }
+  .rlinks a:hover { color: var(--text); }
+  button.wl { background: none; border: 1px solid var(--border); color: var(--muted);
+              border-radius: 6px; padding: 2px 10px; cursor: pointer; float: right;
+              font: inherit; font-size: 12px; }
+  button.wl:hover { color: var(--text); border-color: var(--muted); }
   #ranges button { background: none; border: 1px solid var(--border); color: var(--muted);
                    border-radius: 6px; padding: 2px 10px; margin-left: 6px; cursor: pointer;
                    font: inherit; font-size: 12px; }
@@ -81,7 +90,7 @@
     </table>
   </section>
   <section style="grid-column: 1 / -1">
-    <h2>Momentum Bursts</h2>
+    <h2>Momentum Bursts <button class="wl" onclick="exportWatchlist('mb','bursts')">⬇ TV watchlist</button></h2>
     <p class="sub">close ≥ 1.04 × prior close, volume &gt; prior day. C-n-H = close position
       in day's range (want ≥ 0.7). Consol = days since previous 4% move (want 3–20).
       Up-days = consecutive up-days before the burst (want ≤ 2).</p>
@@ -93,7 +102,7 @@
     </table>
   </section>
   <section>
-    <h2>Anticipation</h2>
+    <h2>Anticipation <button class="wl" onclick="exportWatchlist('ant','anticipation')">⬇ TV watchlist</button></h2>
     <p class="sub">Momentum stocks in a quiet phase (today ±1%). DT = 1.8× off 252d low,
       TI65 = 7d/65d avg &gt; 1.05, MDT = 19%+ above 126d avg. Contraction &lt; 1 = tightening range.
       E-days = days to next earnings (red &lt; 7 — avoid entries into a report).</p>
@@ -104,7 +113,7 @@
     </table>
   </section>
   <section>
-    <h2>Episodic Pivots</h2>
+    <h2>Episodic Pivots <button class="wl" onclick="exportWatchlist('ep','eps')">⬇ TV watchlist</button></h2>
     <p class="sub">8%+ move on 2x+ 50d avg volume, $3+ stock. 9M = 9M+ shares
       (institutional footprint). Earn = reported earnings on/just before the move
       (with EPS surprise %); blank = look for another catalyst.</p>
@@ -118,6 +127,38 @@
 <script>
 const fmt = (v, d = 2) => v == null ? "–" : Number(v).toFixed(d);
 const cls = (cond, klass) => cond ? ` class="${klass}"` : "";
+
+// ---- ticker links: TradingView (click), Finviz / X / Perplexity (icons) ----
+function tvSym(ticker, exchange) {
+  if (!exchange) return ticker;
+  const p = { NASDAQ: "NASDAQ", NYSE: "NYSE" }[exchange] ?? "AMEX";
+  return `${p}:${ticker}`;
+}
+
+function tickCell(s) {
+  const t = s.ticker;
+  return `<td class="tick">
+    <a href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvSym(t, s.exchange))}"
+       target="_blank" title="TradingView chart">${t}</a><span class="rlinks"
+    ><a href="https://finviz.com/quote.ashx?t=${t}" target="_blank" title="Finviz">F</a
+    ><a href="https://x.com/search?q=%24${t}&f=live" target="_blank" title="X search">𝕏</a
+    ><a href="https://www.perplexity.ai/finance/${t}" target="_blank" title="Perplexity Finance">P</a></span></td>`;
+}
+
+// ---- TradingView watchlist export ----
+const panelRows = {};  // panel id -> last-loaded scan rows
+
+function exportWatchlist(id, name) {
+  const rows = panelRows[id] || [];
+  const syms = [...new Set(rows.map(s => tvSym(s.ticker, s.exchange)))];
+  if (!syms.length) return;
+  const blob = new Blob([syms.join(",")], { type: "text/plain" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `stockbee-${name}-${rows[0].date}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 
 // ---- breadth history charts (hand-rolled SVG, no deps) ----
 const W = 1200, H = 90, PAD_L = 8, PAD_R = 56;
@@ -266,12 +307,13 @@ async function load() {
     el.textContent += ` Showing top ${d.rows.length} of ${d.total}.`;
   };
   count("mb", bursts); count("ant", ant); count("ep", eps);
+  panelRows.mb = bursts.rows; panelRows.ant = ant.rows; panelRows.ep = eps.rows;
 
   document.querySelector("#mb tbody").innerHTML = bursts.rows.map(s => {
     const m = s.metrics;
     const consolOk = m.days_since_burst != null && m.days_since_burst >= 3 && m.days_since_burst <= 20;
     return `<tr>
-    <td>${s.date}</td><td class="tick">${s.ticker}</td>
+    <td>${s.date}</td>${tickCell(s)}
     <td class="good">+${fmt(m.pct * 100, 1)}%</td>
     <td>${Number(m.volume).toLocaleString()}</td>
     <td${cls(m.close_near_high >= 0.7, "good")}>${fmt(m.close_near_high)}</td>
@@ -284,7 +326,7 @@ async function load() {
   document.querySelector("#ant tbody").innerHTML = ant.rows.map(s => {
     const m = s.metrics;
     return `<tr>
-    <td>${s.date}</td><td class="tick">${s.ticker}</td>
+    <td>${s.date}</td>${tickCell(s)}
     <td>${m.variants.join(", ")}</td>
     <td>${fmt(m.ti65_ratio)}</td>
     <td${cls(m.contraction != null && m.contraction < 1, "good")}>${fmt(m.contraction)}</td>
@@ -296,7 +338,7 @@ async function load() {
   document.querySelector("#ep tbody").innerHTML = eps.rows.map(s => {
     const m = s.metrics;
     return `<tr>
-    <td>${s.date}</td><td class="tick">${s.ticker}</td>
+    <td>${s.date}</td>${tickCell(s)}
     <td class="good">+${fmt(m.pct * 100, 1)}%</td>
     <td>${m.gap == null ? "–" : fmt(m.gap * 100, 1) + "%"}</td>
     <td${cls(m.rel_volume >= 4, "good")}>${fmt(m.rel_volume, 1)}x</td>

@@ -107,11 +107,12 @@ def scans(scan: str, days: int = 5, limit: int = 50):
         f"SELECT count(*) AS n FROM scan_results WHERE scan=? AND date IN ({placeholders})",
         scan, *dates,
     )[0]["n"]
-    order = SCAN_ORDER.get(scan, "ticker")
+    order = SCAN_ORDER.get(scan, "sr.ticker")
     rows = q(
-        f"SELECT date, ticker, metrics FROM scan_results "
-        f"WHERE scan=? AND date IN ({placeholders}) "
-        f"ORDER BY date DESC, {order} LIMIT ?",
+        f"SELECT sr.date, sr.ticker, sr.metrics, sy.exchange FROM scan_results sr "
+        f"LEFT JOIN symbols sy ON sy.ticker = sr.ticker "
+        f"WHERE sr.scan=? AND sr.date IN ({placeholders}) "
+        f"ORDER BY sr.date DESC, {order} LIMIT ?",
         scan, *dates, limit,
     )
     for r in rows:
