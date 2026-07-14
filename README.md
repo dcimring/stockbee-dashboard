@@ -33,7 +33,7 @@ uv run python -m pipeline.compute
 uv run uvicorn app.main:app --port 8321
 ```
 
-**Nightly updates** (~10 min, free-tier friendly): [scripts/nightly.sh](scripts/nightly.sh) — universe refresh → Massive grouped ingest (last 14 days, auto split re-backfills) → SPY → earnings calendar → recompute. Schedule it with launchd (macOS) or cron; run it manually anytime, it's idempotent.
+**Daily updates** (~10 min, free-tier friendly): [scripts/nightly.sh](scripts/nightly.sh) — universe refresh → Massive grouped ingest (last 14 days, auto split re-backfills) → SPY → earnings calendar → recompute. Runs via launchd (macOS) Tue–Sat 07:00 local; each step is resilient so one failed fetch never skips the recompute. The Massive free tier only authorizes a completed session after the midnight-ET rollover, so a morning run lands the prior trading day — the dashboard reflects the most recent close, not intraday. Run it manually anytime; it's idempotent.
 
 ## Documentation
 

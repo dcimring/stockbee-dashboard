@@ -1,7 +1,9 @@
 #!/bin/zsh
-# Nightly Stockbee pipeline: refresh universe, re-ingest recent days
-# (picks up new data + vendor corrections), recompute breadth & scans.
-# Invoked by launchd (com.stockbee.nightly) on weekday evenings.
+# Stockbee pipeline: refresh universe, re-ingest recent days (picks up new
+# data + vendor corrections), recompute breadth & scans.
+# Invoked by launchd (com.stockbee.nightly) Tue-Sat 07:00 local — the free
+# Massive tier releases a completed session only after the midnight-ET
+# rollover, so a morning run lands the prior trading day.
 
 set -uo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
