@@ -52,22 +52,33 @@ def main() -> None:
     start = date.today() - timedelta(days=args.days)
 
     total = 0
+    skipped = 0
     day = start
     while day <= date.today():
         if day.weekday() < 5:
-            n = ingest_day(conn, day.isoformat(), active)
-            print(f"{day}: {n} rows")
-            total += n
+            try:
+                n = ingest_day(conn, day.isoformat(), active)
+                print(f"{day}: {n} rows")
+                total += n
+            except Exception as e:
+                # A recent day the free tier hasn't released yet returns 403;
+                # the 14-day lookback backfills it on a later run. Never let one
+                # day abort the whole ingest (and the compute step that follows).
+                print(f"{day}: SKIPPED ({e})")
+                skipped += 1
             time.sleep(polygon.RATE_SLEEP)
         day += timedelta(days=1)
-    print(f"grouped ingest done: {total} rows")
+    print(f"grouped ingest done: {total} rows, {skipped} day(s) skipped")
 
-    split_tickers = [t for t in polygon.splits_since(start.isoformat()) if t in active]
-    if split_tickers:
-        print(f"splits detected, re-backfilling from Tiingo: {split_tickers}")
-        for t in split_tickers:
-            n = ingest_ticker(conn, t, "2023-01-01")
-            print(f"  {t}: {n} rows")
+    try:
+        split_tickers = [t for t in polygon.splits_since(start.isoformat()) if t in active]
+        if split_tickers:
+            print(f"splits detected, re-backfilling from Tiingo: {split_tickers}")
+            for t in split_tickers:
+                n = ingest_ticker(conn, t, "2023-01-01")
+                print(f"  {t}: {n} rows")
+    except Exception as e:
+        print(f"split re-backfill SKIPPED ({e})")
 
 
 if __name__ == "__main__":
