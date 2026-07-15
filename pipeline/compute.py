@@ -256,7 +256,10 @@ def _earnings_catalyst(earn: pd.DataFrame):
         return lambda ticker, day: None
     by_ticker: dict[str, list[tuple[str, str | None, float | None]]] = {}
     for r in earn.itertuples():
-        by_ticker.setdefault(r.ticker, []).append((r.date, r.time, r.surprise_pct))
+        # a NULL surprise reads back from pandas as NaN — sanitize to None so it
+        # can't become a `NaN` literal in stored JSON (which breaks the API)
+        surprise = None if pd.isna(r.surprise_pct) else float(r.surprise_pct)
+        by_ticker.setdefault(r.ticker, []).append((r.date, r.time, surprise))
 
     def lookup(ticker: str, day: str):
         from datetime import date, timedelta

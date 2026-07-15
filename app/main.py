@@ -1,6 +1,7 @@
 """Stockbee dashboard — FastAPI backend over the pipeline's SQLite DB."""
 
 import json
+import math
 import sqlite3
 from pathlib import Path
 
@@ -23,6 +24,19 @@ def q(sql: str, *params) -> list[dict]:
         return [dict(r) for r in conn.execute(sql, params)]
     finally:
         conn.close()
+
+
+def _json_safe(obj):
+    """Replace NaN/Infinity floats with None so Starlette's strict JSON
+    serializer (allow_nan=False) can't 500 on a single bad value and blank
+    the whole dashboard."""
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_json_safe(v) for v in obj]
+    return obj
 
 
 def _breadth_df(days: int) -> pd.DataFrame:
@@ -126,4 +140,4 @@ def scans(scan: str, days: int = 5, limit: int = 50):
         "GROUP BY sy.industry HAVING n >= 2 ORDER BY n DESC LIMIT 8",
         scan, dates[0],
     )
-    return {"total": total, "rows": rows, "industries": industries}
+    return _json_safe({"total": total, "rows": rows, "industries": industries})
